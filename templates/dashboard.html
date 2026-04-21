@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — VoiceSense{% endblock %}
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+{% block content %}
+<div class="main-content">
+  <div class="page-header">
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <h1 class="page-title">Dashboard</h1>
+        <p class="page-subtitle">Welcome back, {{ user.username }} 👋</p>
+      </div>
+      <a href="{{ url_for('live') }}" class="btn-primary-glow" style="display:flex;align-items:center;gap:8px;">
+        <i class="bi bi-broadcast"></i> Start Live Detection
+      </a>
+    </div>
+  </div>
+
+  <!-- Stats Row -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;">
+    <div class="stat-card">
+      <div style="color:var(--muted);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">Total Analyses</div>
+      <div style="font-size:2rem;font-weight:800;font-family:'Syne',sans-serif;">{{ total_predictions }}</div>
+    </div>
+    <div class="stat-card" style="--c:var(--accent2)">
+      <div style="color:var(--muted);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">Top Emotion</div>
+      <div style="font-size:2rem;font-weight:800;font-family:'Syne',sans-serif;text-transform:capitalize;">{{ most_common or '—' }}</div>
+    </div>
+    <div class="stat-card">
+      <div style="color:var(--muted);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">Emotion Variety</div>
+      <div style="font-size:2rem;font-weight:800;font-family:'Syne',sans-serif;">{{ emotion_counts.values()|select|list|length }}</div>
+    </div>
+    <div class="stat-card">
+      <div style="color:var(--muted);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">Member Since</div>
+      <div style="font-size:1.1rem;font-weight:700;font-family:'Syne',sans-serif;">{{ user.created_at.strftime('%b %Y') }}</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:20px;margin-bottom:24px;">
+    <!-- Emotion Distribution Chart -->
+    <div class="glass-card">
+      <h3 style="font-size:15px;font-weight:700;margin-bottom:20px;color:var(--text);">Emotion Distribution</h3>
+      <canvas id="emotionChart" height="200"></canvas>
+    </div>
+    <!-- Quick Actions -->
+    <div class="glass-card" style="display:flex;flex-direction:column;gap:12px;">
+      <h3 style="font-size:15px;font-weight:700;margin-bottom:4px;color:var(--text);">Quick Actions</h3>
+      <a href="{{ url_for('live') }}" style="display:flex;align-items:center;gap:14px;padding:16px;background:var(--surface);border-radius:12px;text-decoration:none;border:1px solid var(--border);transition:border-color .2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="width:40px;height:40px;border-radius:10px;background:rgba(124,106,255,.15);display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--accent);">
+          <i class="bi bi-broadcast"></i>
+        </div>
+        <div>
+          <div style="font-weight:600;font-size:14px;color:var(--text);">Live Detection</div>
+          <div style="font-size:12px;color:var(--muted);">Real-time emotion tracking</div>
+        </div>
+      </a>
+      <a href="{{ url_for('record') }}" style="display:flex;align-items:center;gap:14px;padding:16px;background:var(--surface);border-radius:12px;text-decoration:none;border:1px solid var(--border);transition:border-color .2s;" onmouseover="this.style.borderColor='var(--accent2)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="width:40px;height:40px;border-radius:10px;background:rgba(255,106,158,.15);display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--accent2);">
+          <i class="bi bi-mic"></i>
+        </div>
+        <div>
+          <div style="font-weight:600;font-size:14px;color:var(--text);">Record & Analyze</div>
+          <div style="font-size:12px;color:var(--muted);">Record and get instant results</div>
+        </div>
+      </a>
+      <a href="{{ url_for('upload_page') }}" style="display:flex;align-items:center;gap:14px;padding:16px;background:var(--surface);border-radius:12px;text-decoration:none;border:1px solid var(--border);transition:border-color .2s;" onmouseover="this.style.borderColor='var(--accent3)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="width:40px;height:40px;border-radius:10px;background:rgba(106,255,218,.15);display:flex;align-items:center;justify-content:center;font-size:20px;color:var(--accent3);">
+          <i class="bi bi-upload"></i>
+        </div>
+        <div>
+          <div style="font-weight:600;font-size:14px;color:var(--text);">Upload Audio File</div>
+          <div style="font-size:12px;color:var(--muted);">Analyze any audio file</div>
+        </div>
+      </a>
+    </div>
+  </div>
+
+  <!-- Recent History -->
+  <div class="glass-card">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h3 style="font-size:15px;font-weight:700;">Recent Analyses</h3>
+      <a href="{{ url_for('history') }}" style="font-size:13px;color:var(--accent);text-decoration:none;">View all →</a>
+    </div>
+    {% if recent_emotions %}
+    <table class="dark-table">
+      <thead><tr>
+        <th>Emotion</th><th>Confidence</th><th>Source</th><th>Time</th>
+      </tr></thead>
+      <tbody>
+        {% for e in recent_emotions %}
+        <tr>
+          <td><span class="emotion-badge emotion-{{ e.emotion }}">{{ e.emotion }}</span></td>
+          <td>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="flex:1;height:5px;background:var(--border);border-radius:3px;max-width:80px;">
+                <div style="width:{{ (e.confidence*100)|round }}%;height:100%;background:var(--accent);border-radius:3px;"></div>
+              </div>
+              <span style="color:var(--text);font-weight:500;">{{ (e.confidence*100)|round(1) }}%</span>
+            </div>
+          </td>
+          <td><span style="color:var(--muted);font-size:12px;text-transform:capitalize;">{{ e.source or 'upload' }}</span></td>
+          <td style="color:var(--muted);font-size:12px;">{{ e.recorded_at.strftime('%b %d, %H:%M') }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div style="text-align:center;padding:40px;color:var(--muted);">
+      <i class="bi bi-mic-mute" style="font-size:2rem;display:block;margin-bottom:10px;"></i>
+      No analyses yet. Try Live Detection or record audio!
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+const emotionData = {{ emotion_counts | tojson }};
+const labels = Object.keys(emotionData);
+const values = Object.values(emotionData);
+const colors = {
+  angry:'#ff4d4d',calm:'#4dd9ff',disgust:'#a855f7',fear:'#f97316',
+  happy:'#facc15',neutral:'#94a3b8',sad:'#60a5fa',surprise:'#34d399'
+};
+const ctx = document.getElementById('emotionChart').getContext('2d');
+new Chart(ctx, {
+  type: 'bar',
+  data: {
+    labels,
+    datasets: [{
+      data: values,
+      backgroundColor: labels.map(l => colors[l] + '33'),
+      borderColor: labels.map(l => colors[l]),
+      borderWidth: 2, borderRadius: 6
+    }]
+  },
+  options: {
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { color: '#6b6b80', font: { family: 'DM Sans' } }, grid: { color: '#1e1e2e' } },
+      y: { ticks: { color: '#6b6b80', stepSize: 1 }, grid: { color: '#1e1e2e' }, beginAtZero: true }
+    }
+  }
+});
+</script>
+{% endblock %}

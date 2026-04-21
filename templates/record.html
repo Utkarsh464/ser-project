@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}Record & Analyze — VoiceSense{% endblock %}
+{% block content %}
+<div class="main-content">
+  <div class="page-header">
+    <h1 class="page-title">Record & Analyze</h1>
+    <p class="page-subtitle">Record your voice and get instant emotion analysis</p>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:900px;">
+    <div class="glass-card" style="text-align:center;">
+      <canvas id="waveViz" width="400" height="80" style="width:100%;border-radius:8px;background:var(--surface);margin-bottom:20px;"></canvas>
+      
+      <div id="timer" style="font-family:'Syne',sans-serif;font-size:2.5rem;font-weight:800;color:var(--text);margin-bottom:8px;">00:00</div>
+      <div id="recStatus" style="color:var(--muted);font-size:14px;margin-bottom:24px;">Press Record to start</div>
+
+      <div style="display:flex;gap:12px;justify-content:center;margin-bottom:20px;">
+        <button id="recBtn" onclick="startRec()"
+          style="width:56px;height:56px;border-radius:50%;background:var(--accent2);border:none;cursor:pointer;font-size:22px;display:flex;align-items:center;justify-content:center;color:white;box-shadow:0 4px 20px rgba(255,106,158,.4);">
+          <i class="bi bi-mic-fill"></i>
+        </button>
+        <button id="stopBtn" onclick="stopRec()" disabled
+          style="width:56px;height:56px;border-radius:50%;background:var(--surface);border:2px solid var(--border);cursor:pointer;font-size:22px;display:flex;align-items:center;justify-content:center;color:var(--muted);">
+          <i class="bi bi-stop-fill"></i>
+        </button>
+      </div>
+
+      <audio id="audioPlayback" controls style="width:100%;display:none;margin-bottom:16px;"></audio>
+
+      <button id="analyzeBtn" onclick="analyzeAudio()" disabled class="btn-primary-glow" style="width:100%;">
+        <i class="bi bi-cpu"></i> Analyze Emotion
+      </button>
+    </div>
+
+    <!-- Result panel -->
+    <div class="glass-card" id="resultPanel" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;">
+      <div id="resultDefault" style="text-align:center;color:var(--muted);">
+        <i class="bi bi-soundwave" style="font-size:2.5rem;display:block;margin-bottom:12px;"></i>
+        <p style="font-size:14px;">Record audio and analyze<br>to see emotion results here</p>
+      </div>
+
+      <div id="resultContent" style="display:none;width:100%;text-align:center;">
+        <div id="resEmoji" style="font-size:3.5rem;margin-bottom:8px;"></div>
+        <div id="resEmotion" style="font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;text-transform:capitalize;margin-bottom:4px;"></div>
+        <div id="resConfidence" style="font-size:14px;color:var(--muted);margin-bottom:20px;"></div>
+        <div id="resBars" style="width:100%;text-align:left;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+const COLORS = {angry:'#ff4d4d',calm:'#4dd9ff',disgust:'#a855f7',fear:'#f97316',happy:'#facc15',neutral:'#94a3b8',sad:'#60a5fa',surprise:'#34d399'};
+const EMOJI = {angry:'😠',calm:'😌',disgust:'🤢',fear:'😨',happy:'😄',neutral:'😐',sad:'😢',surprise:'😲'};
+
+let mediaRecorder, audioChunks = [], audioBlob;
+let timerInterval, seconds = 0;
+let audioCtx, analyser, animFrame;
+
+const vizCanvas = document.getElementById('waveViz');
+const vizCtx = vizCanvas.getContext('2d');
+
+function drawWave() {
+  if (!analyser) return;
+  animFrame = requestAnimationFrame(drawWave);
+  const buf = new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteTimeDomainData(buf);
+  vizCtx.clearRect(0,0,vizCanvas.width,vizCanvas.height);
+  vizCtx.strokeStyle='#ff6a9e'; vizCtx.lineWidth=2;
+  vizCtx.beginPath();
+  const sw = vizCanvas.width/buf.length;
+  buf.forEach((v,i) => {
+    const y = (v/128)*(vizCanvas.height/2);
+    i===0 ? vizCtx.moveTo(0,y) : vizCtx.lineTo(i*sw,y);
+  });
+  vizCtx.stroke();
+}
+
+async function startRec() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    audioCtx = new AudioContext();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 512;
+    audioCtx.createMediaStreamSource(stream).connect(analyser);
+    drawWave();
+
+    audioChunks = [];
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+    mediaRecorder.onstop = () => {
+      audioBlob = new Blob(audioChunks, {type:'audio/webm'});
+      const url = URL.createObjectURL(audioBlob);
+      const p = document.getElementById('audioPlayback');
+      p.src = url; p.style.display = 'block';
+      document.getElementById('analyzeBtn').disabled = false;
+      cancelAnimationFrame(animFrame);
+    };
+    mediaRecorder.start();
+    seconds = 0;
+    timerInterval = setInterval(() => {
+      seconds++;
+      const m = String(Math.floor(seconds/60)).padStart(2,'0');
+      const s = String(seconds%60).padStart(2,'0');
+      document.getElementById('timer').textContent = `${m}:${s}`;
+    }, 1000);
+    document.getElementById('recStatus').textContent = '🔴 Recording…';
+    document.getElementById('recBtn').disabled = true;
+    document.getElementById('stopBtn').disabled = false;
+  } catch(e) { alert('Microphone error: '+e.message); }
+}
+
+function stopRec() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+  clearInterval(timerInterval);
+  document.getElementById('recStatus').textContent = 'Recording saved — ready to analyze';
+  document.getElementById('recBtn').disabled = false;
+  document.getElementById('stopBtn').disabled = true;
+  if (audioCtx) audioCtx.close();
+}
+
+async function analyzeAudio() {
+  if (!audioBlob) return;
+  document.getElementById('analyzeBtn').disabled = true;
+  document.getElementById('analyzeBtn').innerHTML = '<i class="bi bi-hourglass-split"></i> Analyzing…';
+  const fd = new FormData();
+  fd.append('audio', audioBlob, 'recording.webm');
+  fd.append('source', 'record');
+  try {
+    const res = await fetch('/predict', {method:'POST', body:fd});
+    const data = await res.json();
+    if (data.success) showResult(data);
+    else alert('Error: '+data.error);
+  } catch(e) { alert('Network error'); }
+  document.getElementById('analyzeBtn').disabled = false;
+  document.getElementById('analyzeBtn').innerHTML = '<i class="bi bi-cpu"></i> Analyze Emotion';
+}
+
+function showResult(data) {
+  document.getElementById('resultDefault').style.display = 'none';
+  document.getElementById('resultContent').style.display = 'block';
+  const {emotion, confidence, all_probabilities} = data;
+  document.getElementById('resEmoji').textContent = EMOJI[emotion]||'🎤';
+  document.getElementById('resEmotion').textContent = emotion;
+  document.getElementById('resEmotion').style.color = COLORS[emotion]||'var(--text)';
+  document.getElementById('resConfidence').textContent = `Confidence: ${confidence.toFixed(1)}%`;
+  const bars = document.getElementById('resBars');
+  bars.innerHTML = '';
+  Object.entries(all_probabilities).sort((a,b)=>b[1]-a[1]).forEach(([e,p]) => {
+    bars.innerHTML += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
+      <div style="width:65px;font-size:11px;color:${COLORS[e]};font-weight:600;text-transform:capitalize;">${e}</div>
+      <div style="flex:1;height:5px;background:var(--border);border-radius:3px;">
+        <div style="width:${p}%;height:100%;background:${COLORS[e]};border-radius:3px;"></div>
+      </div>
+      <div style="width:38px;font-size:11px;color:var(--muted);text-align:right;">${p.toFixed(1)}%</div>
+    </div>`;
+  });
+}
+</script>
+{% endblock %}

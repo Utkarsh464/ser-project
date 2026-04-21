@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Upload — VoiceSense{% endblock %}
+{% block content %}
+<div class="main-content">
+  <div class="page-header">
+    <h1 class="page-title">Upload Audio File</h1>
+    <p class="page-subtitle">Supported formats: WAV, MP3, OGG, WEBM, FLAC, M4A (max 32 MB)</p>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:900px;">
+    <div class="glass-card">
+      <div id="dropZone" onclick="document.getElementById('fileInput').click()"
+        style="border:2px dashed var(--border);border-radius:14px;padding:48px 24px;text-align:center;cursor:pointer;transition:all .2s;"
+        ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
+        ondragleave="this.style.borderColor='var(--border)'"
+        ondrop="handleDrop(event)">
+        <i class="bi bi-cloud-upload" style="font-size:2.5rem;color:var(--accent);display:block;margin-bottom:12px;"></i>
+        <div style="font-weight:600;font-size:15px;margin-bottom:6px;">Drop file here or click to browse</div>
+        <div style="color:var(--muted);font-size:13px;">WAV · MP3 · OGG · WEBM · FLAC · M4A</div>
+        <input type="file" id="fileInput" accept=".wav,.mp3,.ogg,.webm,.flac,.m4a" style="display:none" onchange="fileSelected(event)">
+      </div>
+
+      <div id="fileInfo" style="display:none;margin-top:14px;padding:12px 16px;background:var(--surface);border-radius:10px;display:flex;align-items:center;gap:12px;">
+        <i class="bi bi-file-music" style="font-size:1.3rem;color:var(--accent);"></i>
+        <div style="flex:1;min-width:0;">
+          <div id="fileName" style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+          <div id="fileSize" style="font-size:11px;color:var(--muted);"></div>
+        </div>
+        <button onclick="clearFile()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;"><i class="bi bi-x"></i></button>
+      </div>
+
+      <audio id="previewAudio" controls style="width:100%;margin-top:14px;display:none;"></audio>
+
+      <button id="analyzeBtn" onclick="uploadAndAnalyze()" disabled class="btn-primary-glow" style="width:100%;margin-top:16px;">
+        <i class="bi bi-cpu"></i> Analyze File
+      </button>
+    </div>
+
+    <!-- Result -->
+    <div class="glass-card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;">
+      <div id="resultDefault" style="text-align:center;color:var(--muted);">
+        <i class="bi bi-file-earmark-music" style="font-size:2.5rem;display:block;margin-bottom:12px;"></i>
+        <p style="font-size:14px;">Upload an audio file<br>to analyze its emotion</p>
+      </div>
+      <div id="resultContent" style="display:none;width:100%;text-align:center;">
+        <div id="resEmoji" style="font-size:3.5rem;margin-bottom:8px;"></div>
+        <div id="resEmotion" style="font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;text-transform:capitalize;margin-bottom:4px;"></div>
+        <div id="resConfidence" style="font-size:14px;color:var(--muted);margin-bottom:20px;"></div>
+        <div id="resBars" style="width:100%;text-align:left;"></div>
+        <div id="resTime" style="font-size:11px;color:var(--muted);margin-top:12px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+const COLORS = {angry:'#ff4d4d',calm:'#4dd9ff',disgust:'#a855f7',fear:'#f97316',happy:'#facc15',neutral:'#94a3b8',sad:'#60a5fa',surprise:'#34d399'};
+const EMOJI = {angry:'😠',calm:'😌',disgust:'🤢',fear:'😨',happy:'😄',neutral:'😐',sad:'😢',surprise:'😲'};
+let selectedFile = null;
+
+function fileSelected(e) { setFile(e.target.files[0]); }
+function handleDrop(e) { e.preventDefault(); document.getElementById('dropZone').style.borderColor='var(--border)'; setFile(e.dataTransfer.files[0]); }
+
+function setFile(file) {
+  if (!file) return;
+  selectedFile = file;
+  document.getElementById('fileInfo').style.display = 'flex';
+  document.getElementById('fileName').textContent = file.name;
+  document.getElementById('fileSize').textContent = (file.size/1024/1024).toFixed(2)+' MB';
+  const audio = document.getElementById('previewAudio');
+  audio.src = URL.createObjectURL(file); audio.style.display = 'block';
+  document.getElementById('analyzeBtn').disabled = false;
+}
+
+function clearFile() {
+  selectedFile = null;
+  document.getElementById('fileInfo').style.display = 'none';
+  document.getElementById('previewAudio').style.display = 'none';
+  document.getElementById('analyzeBtn').disabled = true;
+  document.getElementById('fileInput').value = '';
+}
+
+async function uploadAndAnalyze() {
+  if (!selectedFile) return;
+  document.getElementById('analyzeBtn').disabled = true;
+  document.getElementById('analyzeBtn').innerHTML = '<i class="bi bi-hourglass-split"></i> Analyzing…';
+  const fd = new FormData();
+  fd.append('audio_file', selectedFile);
+  try {
+    const res = await fetch('/predict_upload', {method:'POST', body:fd});
+    const data = await res.json();
+    if (data.success) showResult(data);
+    else alert('Error: '+data.error);
+  } catch(e) { alert('Network error'); }
+  document.getElementById('analyzeBtn').disabled = false;
+  document.getElementById('analyzeBtn').innerHTML = '<i class="bi bi-cpu"></i> Analyze File';
+}
+
+function showResult(data) {
+  document.getElementById('resultDefault').style.display = 'none';
+  document.getElementById('resultContent').style.display = 'block';
+  const {emotion, confidence, all_probabilities, recorded_at} = data;
+  document.getElementById('resEmoji').textContent = EMOJI[emotion]||'🎤';
+  document.getElementById('resEmotion').textContent = emotion;
+  document.getElementById('resEmotion').style.color = COLORS[emotion]||'var(--text)';
+  document.getElementById('resConfidence').textContent = `Confidence: ${confidence.toFixed(1)}%`;
+  document.getElementById('resTime').textContent = 'Saved at '+recorded_at;
+  const bars = document.getElementById('resBars');
+  bars.innerHTML = '';
+  Object.entries(all_probabilities).sort((a,b)=>b[1]-a[1]).forEach(([e,p]) => {
+    bars.innerHTML += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
+      <div style="width:65px;font-size:11px;color:${COLORS[e]};font-weight:600;text-transform:capitalize;">${e}</div>
+      <div style="flex:1;height:5px;background:var(--border);border-radius:3px;">
+        <div style="width:${p}%;height:100%;background:${COLORS[e]};border-radius:3px;"></div>
+      </div>
+      <div style="width:38px;font-size:11px;color:var(--muted);text-align:right;">${p.toFixed(1)}%</div>
+    </div>`;
+  });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+{% block title %}Live Detection — VoiceSense{% endblock %}
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+{% endblock %}
+{% block content %}
+<div class="main-content">
+  <div class="page-header">
+    <h1 class="page-title">Live Detection</h1>
+    <p class="page-subtitle">Real-time speech emotion analysis from your microphone</p>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+    <!-- Live control panel -->
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div class="glass-card" style="text-align:center;">
+        <!-- Visualizer -->
+        <div style="position:relative;margin-bottom:20px;">
+          <canvas id="vizCanvas" width="400" height="80" style="width:100%;border-radius:8px;background:var(--surface);"></canvas>
+        </div>
+
+        <!-- Big emotion display -->
+        <div id="liveEmotion" style="margin-bottom:16px;">
+          <div style="font-size:3rem;margin-bottom:4px;" id="emojiDisplay">🎤</div>
+          <div id="emotionLabel" style="font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;color:var(--text);text-transform:capitalize;">Ready</div>
+          <div id="confidenceLabel" style="color:var(--muted);font-size:14px;margin-top:4px;">Start microphone to begin</div>
+        </div>
+
+        <!-- Controls -->
+        <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+          <button id="startBtn" onclick="startLive()" class="btn-primary-glow" style="display:flex;align-items:center;gap:8px;">
+            <i class="bi bi-broadcast"></i> Start Live
+          </button>
+          <button id="stopBtn" onclick="stopLive()" disabled
+            style="background:var(--surface);color:var(--muted);border:1px solid var(--border);padding:12px 24px;border-radius:10px;font-family:'Syne',sans-serif;font-weight:700;font-size:14px;cursor:pointer;">
+            <i class="bi bi-stop-circle"></i> Stop
+          </button>
+        </div>
+
+        <!-- Save toggle -->
+        <label style="display:flex;align-items:center;gap:8px;justify-content:center;margin-top:16px;cursor:pointer;font-size:13px;color:var(--muted);">
+          <input type="checkbox" id="saveToggle" style="accent-color:var(--accent);">
+          Save results to history
+        </label>
+
+        <!-- Status -->
+        <div id="statusText" style="margin-top:12px;font-size:12px;color:var(--muted);min-height:18px;"></div>
+      </div>
+
+      <!-- Emotion mini-bars -->
+      <div class="glass-card">
+        <h3 style="font-size:14px;font-weight:700;margin-bottom:14px;">Probability Breakdown</h3>
+        <div id="probBars"></div>
+      </div>
+    </div>
+
+    <!-- Timeline chart -->
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div class="glass-card" style="flex:1;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+          <h3 style="font-size:14px;font-weight:700;">Live Timeline</h3>
+          <button onclick="clearTimeline()" style="background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;">Clear</button>
+        </div>
+        <canvas id="timelineChart" height="220"></canvas>
+      </div>
+
+      <!-- Session log -->
+      <div class="glass-card" style="max-height:260px;overflow-y:auto;">
+        <h3 style="font-size:14px;font-weight:700;margin-bottom:12px;">Session Log</h3>
+        <div id="sessionLog" style="display:flex;flex-direction:column;gap:6px;">
+          <div style="color:var(--muted);font-size:13px;">No detections yet…</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+const EMOTIONS = {{ emotions | tojson }};
+const COLORS = {angry:'#ff4d4d',calm:'#4dd9ff',disgust:'#a855f7',fear:'#f97316',happy:'#facc15',neutral:'#94a3b8',sad:'#60a5fa',surprise:'#34d399'};
+const EMOJI = {angry:'😠',calm:'😌',disgust:'🤢',fear:'😨',happy:'😄',neutral:'😐',sad:'😢',surprise:'😲'};
+
+let mediaRecorder, audioCtx, analyser, animFrame;
+let isLive = false;
+let chunkInterval;
+let timelineLabels = [], timelineData = [], timelineColors = [];
+
+// Waveform
+const vizCanvas = document.getElementById('vizCanvas');
+const vizCtx = vizCanvas.getContext('2d');
+
+// Timeline chart
+const tlCtx = document.getElementById('timelineChart').getContext('2d');
+const tlChart = new Chart(tlCtx, {
+  type: 'line',
+  data: { labels: timelineLabels, datasets: [{
+    label: 'Confidence %', data: timelineData,
+    borderColor: '#7c6aff', backgroundColor: 'rgba(124,106,255,.1)',
+    pointBackgroundColor: timelineColors,
+    tension: 0.4, fill: true, pointRadius: 5
+  }]},
+  options: {
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { color:'#6b6b80', maxTicksLimit: 8 }, grid: { color:'#1e1e2e' } },
+      y: { min: 0, max: 100, ticks: { color:'#6b6b80', callback: v => v+'%' }, grid: { color:'#1e1e2e' } }
+    },
+    animation: { duration: 200 }
+  }
+});
+
+function drawWaveform(dataArray) {
+  vizCtx.clearRect(0,0,vizCanvas.width,vizCanvas.height);
+  vizCtx.fillStyle = 'transparent';
+  const sliceWidth = vizCanvas.width / dataArray.length;
+  vizCtx.strokeStyle = '#7c6aff';
+  vizCtx.lineWidth = 2;
+  vizCtx.beginPath();
+  let x = 0;
+  for (let i=0; i<dataArray.length; i++) {
+    const v = dataArray[i]/128;
+    const y = (v * vizCanvas.height/2);
+    i===0 ? vizCtx.moveTo(x,y) : vizCtx.lineTo(x,y);
+    x += sliceWidth;
+  }
+  vizCtx.stroke();
+}
+
+function animateViz() {
+  if (!analyser) return;
+  animFrame = requestAnimationFrame(animateViz);
+  const buf = new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteTimeDomainData(buf);
+  drawWaveform(buf);
+}
+
+async function startLive() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    audioCtx = new AudioContext();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 1024;
+    audioCtx.createMediaStreamSource(stream).connect(analyser);
+    animateViz();
+
+    isLive = true;
+    document.getElementById('startBtn').disabled = true;
+    document.getElementById('stopBtn').disabled = false;
+    document.getElementById('statusText').textContent = '🔴 Live — analyzing every 3 seconds…';
+
+    // Start chunked recording
+    startChunkedRecording(stream);
+  } catch(e) {
+    alert('Microphone access denied or not available.\n' + e.message);
+  }
+}
+
+function startChunkedRecording(stream) {
+  function recordChunk() {
+    if (!isLive) return;
+    const chunks = [];
+    const mr = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+    mr.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+    mr.onstop = () => sendChunk(new Blob(chunks, { type: 'audio/webm' }));
+    mr.start();
+    setTimeout(() => { if (mr.state !== 'inactive') mr.stop(); }, 3000);
+    chunkInterval = setTimeout(recordChunk, 3200);
+  }
+  recordChunk();
+}
+
+async function sendChunk(blob) {
+  const fd = new FormData();
+  fd.append('audio', blob, 'chunk.webm');
+  fd.append('source', 'live');
+  fd.append('save', document.getElementById('saveToggle').checked ? 'true' : 'false');
+  try {
+    const res = await fetch('/predict_live', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.success) updateLiveUI(data);
+  } catch(e) { console.error(e); }
+}
+
+function updateLiveUI(data) {
+  const { emotion, confidence, all_probabilities } = data;
+  document.getElementById('emojiDisplay').textContent = EMOJI[emotion] || '🎤';
+  document.getElementById('emotionLabel').textContent = emotion;
+  document.getElementById('emotionLabel').style.color = COLORS[emotion] || 'var(--text)';
+  document.getElementById('confidenceLabel').textContent = `Confidence: ${confidence.toFixed(1)}%`;
+
+  // Prob bars
+  const container = document.getElementById('probBars');
+  container.innerHTML = '';
+  const sorted = Object.entries(all_probabilities).sort((a,b)=>b[1]-a[1]);
+  sorted.forEach(([e,p]) => {
+    container.innerHTML += `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <div style="width:70px;font-size:12px;color:${COLORS[e]};font-weight:600;text-transform:capitalize;">${e}</div>
+        <div style="flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden;">
+          <div style="width:${p}%;height:100%;background:${COLORS[e]};border-radius:3px;transition:width .3s;"></div>
+        </div>
+        <div style="width:40px;font-size:12px;color:var(--muted);text-align:right;">${p.toFixed(1)}%</div>
+      </div>`;
+  });
+
+  // Timeline
+  const now = new Date().toLocaleTimeString('en',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  timelineLabels.push(now);
+  timelineData.push(confidence);
+  timelineColors.push(COLORS[emotion]);
+  if (timelineLabels.length > 20) { timelineLabels.shift(); timelineData.shift(); timelineColors.shift(); }
+  tlChart.update();
+
+  // Session log
+  const log = document.getElementById('sessionLog');
+  if (log.children[0]?.textContent.includes('No detections')) log.innerHTML = '';
+  const entry = document.createElement('div');
+  entry.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px;background:var(--surface);border-radius:8px;font-size:12px;';
+  entry.innerHTML = `<span style="color:${COLORS[emotion]};font-weight:600;text-transform:capitalize;">${emotion}</span><span style="color:var(--muted);">${confidence.toFixed(1)}%</span><span style="color:var(--muted);margin-left:auto;">${now}</span>`;
+  log.insertBefore(entry, log.firstChild);
+  if (log.children.length > 30) log.lastChild.remove();
+}
+
+function stopLive() {
+  isLive = false;
+  clearTimeout(chunkInterval);
+  cancelAnimationFrame(animFrame);
+  if (audioCtx) audioCtx.close();
+  document.getElementById('startBtn').disabled = false;
+  document.getElementById('stopBtn').disabled = true;
+  document.getElementById('statusText').textContent = '⏹️ Stopped';
+  vizCtx.clearRect(0,0,vizCanvas.width,vizCanvas.height);
+}
+
+function clearTimeline() {
+  timelineLabels.length = 0; timelineData.length = 0; timelineColors.length = 0;
+  tlChart.update();
+  document.getElementById('sessionLog').innerHTML = '<div style="color:var(--muted);font-size:13px;">No detections yet…</div>';
+}
+</script>
+{% endblock %}

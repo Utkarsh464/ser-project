@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.db
+instance/
+data/temp_audio/
+static/uploads/
+venv/
+env/
+.env
+training_log.csv
