@@ -1,122 +1,214 @@
 {% extends "base.html" %}
-{% block title %}Upload — VoiceSense{% endblock %}
+{% block title %}Upload Audio — VoiceSense{% endblock %}
 {% block content %}
-<div class="main-content">
-  <div class="page-header">
-    <h1 class="page-title">Upload Audio File</h1>
-    <p class="page-subtitle">Supported formats: WAV, MP3, OGG, WEBM, FLAC, M4A (max 32 MB)</p>
-  </div>
+<div class="main-wrap">
+  <div class="main-inner">
 
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:900px;">
-    <div class="glass-card">
-      <div id="dropZone" onclick="document.getElementById('fileInput').click()"
-        style="border:2px dashed var(--border);border-radius:14px;padding:48px 24px;text-align:center;cursor:pointer;transition:all .2s;"
-        ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
-        ondragleave="this.style.borderColor='var(--border)'"
-        ondrop="handleDrop(event)">
-        <i class="bi bi-cloud-upload" style="font-size:2.5rem;color:var(--accent);display:block;margin-bottom:12px;"></i>
-        <div style="font-weight:600;font-size:15px;margin-bottom:6px;">Drop file here or click to browse</div>
-        <div style="color:var(--muted);font-size:13px;">WAV · MP3 · OGG · WEBM · FLAC · M4A</div>
-        <input type="file" id="fileInput" accept=".wav,.mp3,.ogg,.webm,.flac,.m4a" style="display:none" onchange="fileSelected(event)">
-      </div>
-
-      <div id="fileInfo" style="display:none;margin-top:14px;padding:12px 16px;background:var(--surface);border-radius:10px;display:flex;align-items:center;gap:12px;">
-        <i class="bi bi-file-music" style="font-size:1.3rem;color:var(--accent);"></i>
-        <div style="flex:1;min-width:0;">
-          <div id="fileName" style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
-          <div id="fileSize" style="font-size:11px;color:var(--muted);"></div>
+    <div class="page-head">
+      <div class="page-head-top">
+        <div>
+          <div class="page-title">Upload <span>Audio</span></div>
+          <div class="page-sub">Upload any audio file and analyze its emotion</div>
         </div>
-        <button onclick="clearFile()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;"><i class="bi bi-x"></i></button>
+        <div id="statusPill" class="status-pill status-idle"><i class="bi bi-circle-fill" style="font-size:8px;"></i> Idle</div>
       </div>
-
-      <audio id="previewAudio" controls style="width:100%;margin-top:14px;display:none;"></audio>
-
-      <button id="analyzeBtn" onclick="uploadAndAnalyze()" disabled class="btn-primary-glow" style="width:100%;margin-top:16px;">
-        <i class="bi bi-cpu"></i> Analyze File
-      </button>
     </div>
 
-    <!-- Result -->
-    <div class="glass-card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;">
-      <div id="resultDefault" style="text-align:center;color:var(--muted);">
-        <i class="bi bi-file-earmark-music" style="font-size:2.5rem;display:block;margin-bottom:12px;"></i>
-        <p style="font-size:14px;">Upload an audio file<br>to analyze its emotion</p>
+    <div class="grid-2">
+
+      <!-- Upload + Controls -->
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        <div class="g-card">
+          <div class="g-card-title"><i class="bi bi-cloud-upload-fill"></i> Select Audio File</div>
+
+          <!-- Drop zone -->
+          <div id="dropZone"
+            style="border:2px dashed var(--border2);border-radius:16px;padding:40px 24px;text-align:center;cursor:pointer;transition:all 0.2s;margin-bottom:16px;"
+            onclick="document.getElementById('fileInput').click()"
+            ondragover="event.preventDefault();this.style.borderColor='var(--blue)';this.style.background='rgba(79,139,255,0.05)'"
+            ondragleave="this.style.borderColor='var(--border2)';this.style.background=''"
+            ondrop="handleDrop(event)">
+            <i class="bi bi-cloud-upload-fill" style="font-size:2.8rem;color:var(--blue);display:block;margin-bottom:12px;opacity:0.7;"></i>
+            <div style="font-weight:600;font-size:15px;color:var(--text);margin-bottom:6px;">Drop file here or click to browse</div>
+            <div style="font-size:13px;color:var(--text2);">WAV · MP3 · OGG · WEBM · FLAC · M4A</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:4px;">Max 32 MB</div>
+            <input type="file" id="fileInput" accept=".wav,.mp3,.ogg,.webm,.flac,.m4a" style="display:none" onchange="fileSelected(event)">
+          </div>
+
+          <!-- File info -->
+          <div id="fileInfo" style="display:none;padding:14px 16px;background:rgba(79,139,255,0.08);border:1px solid rgba(79,139,255,0.2);border-radius:12px;margin-bottom:16px;">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <i class="bi bi-file-music-fill" style="font-size:1.5rem;color:var(--blue);flex-shrink:0;"></i>
+              <div style="flex:1;min-width:0;">
+                <div id="fileName" style="font-size:14px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"></div>
+                <div id="fileSize" style="font-size:12px;color:var(--text2);margin-top:2px;"></div>
+              </div>
+              <button onclick="clearFile()" style="background:none;border:none;color:var(--text2);cursor:pointer;font-size:18px;padding:4px;" title="Remove">
+                <i class="bi bi-x-circle-fill"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Audio player -->
+          <div id="playerWrap" style="display:none;margin-bottom:16px;">
+            <div class="g-card-title" style="margin-bottom:10px;"><i class="bi bi-play-circle-fill"></i> Preview</div>
+            <audio id="audioPlayer" controls style="width:100%;border-radius:10px;"></audio>
+          </div>
+
+          <!-- Action buttons -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <button id="btnListen" onclick="listenPreview()" disabled class="btn btn-ghost btn-lg" style="justify-content:center;flex-direction:column;gap:4px;padding:14px 8px;">
+              <i class="bi bi-play-fill" style="font-size:20px;"></i>
+              <span style="font-size:12px;">Preview</span>
+            </button>
+            <button id="btnAnalyze" onclick="uploadAndAnalyze()" disabled class="btn btn-success btn-lg" style="justify-content:center;flex-direction:column;gap:4px;padding:14px 8px;">
+              <i class="bi bi-cpu-fill" style="font-size:20px;"></i>
+              <span style="font-size:12px;">Analyze</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Supported formats -->
+        <div class="g-card">
+          <div class="g-card-title"><i class="bi bi-info-circle-fill"></i> Supported Formats</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+            {% for fmt, desc in [('WAV','Best quality'),('MP3','Most common'),('OGG','Open format'),('WEBM','Browser audio'),('FLAC','Lossless'),('M4A','Apple audio')] %}
+            <div style="padding:10px 12px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:10px;text-align:center;">
+              <div style="font-size:12px;font-weight:700;color:var(--blue);">{{ fmt }}</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:2px;">{{ desc }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
       </div>
-      <div id="resultContent" style="display:none;width:100%;text-align:center;">
-        <div id="resEmoji" style="font-size:3.5rem;margin-bottom:8px;"></div>
-        <div id="resEmotion" style="font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;text-transform:capitalize;margin-bottom:4px;"></div>
-        <div id="resConfidence" style="font-size:14px;color:var(--muted);margin-bottom:20px;"></div>
-        <div id="resBars" style="width:100%;text-align:left;"></div>
-        <div id="resTime" style="font-size:11px;color:var(--muted);margin-top:12px;"></div>
+
+      <!-- Result -->
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        <div class="g-card" style="flex:1;">
+          <div class="g-card-title"><i class="bi bi-emoji-smile"></i> Analysis Result</div>
+          <div id="resultArea">
+            <div style="text-align:center;padding:48px 20px;color:var(--text2);">
+              <i class="bi bi-file-earmark-music" style="font-size:2.5rem;display:block;margin-bottom:12px;opacity:0.3;"></i>
+              <div style="font-weight:500;margin-bottom:4px;">No file selected</div>
+              <div style="font-size:13px;">Upload an audio file and click Analyze</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="g-card" id="probCard" style="display:none;">
+          <div class="g-card-title"><i class="bi bi-bar-chart-steps"></i> All Probabilities</div>
+          <div id="probBars"></div>
+        </div>
       </div>
+
     </div>
   </div>
 </div>
 {% endblock %}
 {% block extra_scripts %}
 <script>
-const COLORS = {angry:'#ff4d4d',calm:'#4dd9ff',disgust:'#a855f7',fear:'#f97316',happy:'#facc15',neutral:'#94a3b8',sad:'#60a5fa',surprise:'#34d399'};
-const EMOJI = {angry:'😠',calm:'😌',disgust:'🤢',fear:'😨',happy:'😄',neutral:'😐',sad:'😢',surprise:'😲'};
 let selectedFile = null;
 
+function setStatus(state) {
+  const pill = document.getElementById('statusPill');
+  const map = {
+    idle:      ['status-idle', '<i class="bi bi-circle-fill" style="font-size:8px;"></i> Idle'],
+    ready:     ['status-live', '<i class="bi bi-check-circle-fill" style="font-size:10px;"></i> File Ready'],
+    analyzing: ['status-live', '<i class="bi bi-hourglass-split" style="font-size:10px;"></i> Analyzing'],
+    done:      ['status-done', '<i class="bi bi-check-circle-fill" style="font-size:10px;"></i> Done'],
+  };
+  pill.className = 'status-pill ' + map[state][0];
+  pill.innerHTML = map[state][1];
+}
+
 function fileSelected(e) { setFile(e.target.files[0]); }
-function handleDrop(e) { e.preventDefault(); document.getElementById('dropZone').style.borderColor='var(--border)'; setFile(e.dataTransfer.files[0]); }
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropZone').style.borderColor = 'var(--border2)';
+  document.getElementById('dropZone').style.background = '';
+  setFile(e.dataTransfer.files[0]);
+}
 
 function setFile(file) {
   if (!file) return;
   selectedFile = file;
-  document.getElementById('fileInfo').style.display = 'flex';
+  document.getElementById('fileInfo').style.display = 'block';
   document.getElementById('fileName').textContent = file.name;
-  document.getElementById('fileSize').textContent = (file.size/1024/1024).toFixed(2)+' MB';
-  const audio = document.getElementById('previewAudio');
-  audio.src = URL.createObjectURL(file); audio.style.display = 'block';
-  document.getElementById('analyzeBtn').disabled = false;
+  document.getElementById('fileSize').textContent = (file.size/1024/1024).toFixed(2) + ' MB';
+  const url = URL.createObjectURL(file);
+  document.getElementById('audioPlayer').src = url;
+  document.getElementById('playerWrap').style.display = 'block';
+  document.getElementById('btnListen').disabled = false;
+  document.getElementById('btnAnalyze').disabled = false;
+  // Drop zone feedback
+  document.getElementById('dropZone').style.borderColor = 'var(--blue)';
+  setStatus('ready');
 }
 
 function clearFile() {
   selectedFile = null;
   document.getElementById('fileInfo').style.display = 'none';
-  document.getElementById('previewAudio').style.display = 'none';
-  document.getElementById('analyzeBtn').disabled = true;
+  document.getElementById('playerWrap').style.display = 'none';
+  document.getElementById('btnListen').disabled = true;
+  document.getElementById('btnAnalyze').disabled = true;
   document.getElementById('fileInput').value = '';
+  document.getElementById('dropZone').style.borderColor = 'var(--border2)';
+  document.getElementById('resultArea').innerHTML = `<div style="text-align:center;padding:48px 20px;color:var(--text2);"><i class="bi bi-file-earmark-music" style="font-size:2.5rem;display:block;margin-bottom:12px;opacity:0.3;"></i><div style="font-weight:500;margin-bottom:4px;">No file selected</div><div style="font-size:13px;">Upload an audio file and click Analyze</div></div>`;
+  document.getElementById('probCard').style.display = 'none';
+  setStatus('idle');
+}
+
+function listenPreview() {
+  const player = document.getElementById('audioPlayer');
+  if (player.paused) { player.play(); document.getElementById('btnListen').innerHTML = '<i class="bi bi-pause-fill" style="font-size:20px;"></i><span style="font-size:12px;">Pause</span>'; }
+  else { player.pause(); document.getElementById('btnListen').innerHTML = '<i class="bi bi-play-fill" style="font-size:20px;"></i><span style="font-size:12px;">Preview</span>'; }
+  document.getElementById('audioPlayer').onended = () => {
+    document.getElementById('btnListen').innerHTML = '<i class="bi bi-play-fill" style="font-size:20px;"></i><span style="font-size:12px;">Preview</span>';
+  };
 }
 
 async function uploadAndAnalyze() {
   if (!selectedFile) return;
-  document.getElementById('analyzeBtn').disabled = true;
-  document.getElementById('analyzeBtn').innerHTML = '<i class="bi bi-hourglass-split"></i> Analyzing…';
+  document.getElementById('btnAnalyze').disabled = true;
+  document.getElementById('btnAnalyze').innerHTML = '<i class="bi bi-hourglass-split" style="font-size:20px;"></i><span style="font-size:12px;">Analyzing…</span>';
+  setStatus('analyzing');
+
   const fd = new FormData();
   fd.append('audio_file', selectedFile);
   try {
-    const res = await fetch('/predict_upload', {method:'POST', body:fd});
+    const res = await fetch('/predict_upload', { method: 'POST', body: fd });
     const data = await res.json();
-    if (data.success) showResult(data);
-    else alert('Error: '+data.error);
-  } catch(e) { alert('Network error'); }
-  document.getElementById('analyzeBtn').disabled = false;
-  document.getElementById('analyzeBtn').innerHTML = '<i class="bi bi-cpu"></i> Analyze File';
+    if (data.success) { showResult(data); setStatus('done'); }
+    else { alert('Error: ' + data.error); setStatus('ready'); }
+  } catch(e) { alert('Network error'); setStatus('ready'); }
+
+  document.getElementById('btnAnalyze').disabled = false;
+  document.getElementById('btnAnalyze').innerHTML = '<i class="bi bi-cpu-fill" style="font-size:20px;"></i><span style="font-size:12px;">Analyze</span>';
 }
 
 function showResult(data) {
-  document.getElementById('resultDefault').style.display = 'none';
-  document.getElementById('resultContent').style.display = 'block';
-  const {emotion, confidence, all_probabilities, recorded_at} = data;
-  document.getElementById('resEmoji').textContent = EMOJI[emotion]||'🎤';
-  document.getElementById('resEmotion').textContent = emotion;
-  document.getElementById('resEmotion').style.color = COLORS[emotion]||'var(--text)';
-  document.getElementById('resConfidence').textContent = `Confidence: ${confidence.toFixed(1)}%`;
-  document.getElementById('resTime').textContent = 'Saved at '+recorded_at;
-  const bars = document.getElementById('resBars');
-  bars.innerHTML = '';
-  Object.entries(all_probabilities).sort((a,b)=>b[1]-a[1]).forEach(([e,p]) => {
-    bars.innerHTML += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
-      <div style="width:65px;font-size:11px;color:${COLORS[e]};font-weight:600;text-transform:capitalize;">${e}</div>
-      <div style="flex:1;height:5px;background:var(--border);border-radius:3px;">
-        <div style="width:${p}%;height:100%;background:${COLORS[e]};border-radius:3px;"></div>
-      </div>
-      <div style="width:38px;font-size:11px;color:var(--muted);text-align:right;">${p.toFixed(1)}%</div>
+  const { emotion, confidence, all_probabilities, recorded_at } = data;
+  const color = E_COLORS[emotion] || '#4f8bff';
+  document.getElementById('resultArea').innerHTML = `
+    <div class="result-big">
+      <span class="result-emoji">${E_EMOJI[emotion]||'🎤'}</span>
+      <div class="result-emotion" style="color:${color};">${emotion}</div>
+      <div class="result-conf">Confidence: <strong style="color:var(--text);font-family:'JetBrains Mono',monospace;">${confidence.toFixed(1)}%</strong></div>
+      <div class="result-time">Saved · ${recorded_at}</div>
     </div>`;
+
+  const container = document.getElementById('probBars');
+  container.innerHTML = '';
+  Object.entries(all_probabilities).sort((a,b)=>b[1]-a[1]).forEach(([e,p]) => {
+    const c = E_COLORS[e] || '#4f8bff';
+    container.innerHTML += `
+      <div class="prob-row">
+        <div class="prob-label" style="color:${c};">${e}</div>
+        <div class="prob-bar-bg"><div class="prob-bar-fill" style="width:${p}%;background:${c};"></div></div>
+        <div class="prob-pct">${p.toFixed(1)}%</div>
+      </div>`;
   });
+  document.getElementById('probCard').style.display = 'block';
 }
 </script>
 {% endblock %}

@@ -1,103 +1,165 @@
 {% extends "base.html" %}
 {% block title %}Record & Analyze — VoiceSense{% endblock %}
 {% block content %}
-<div class="main-content">
-  <div class="page-header">
-    <h1 class="page-title">Record & Analyze</h1>
-    <p class="page-subtitle">Record your voice and get instant emotion analysis</p>
-  </div>
+<div class="main-wrap">
+  <div class="main-inner">
 
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:900px;">
-    <div class="glass-card" style="text-align:center;">
-      <canvas id="waveViz" width="400" height="80" style="width:100%;border-radius:8px;background:var(--surface);margin-bottom:20px;"></canvas>
-      
-      <div id="timer" style="font-family:'Syne',sans-serif;font-size:2.5rem;font-weight:800;color:var(--text);margin-bottom:8px;">00:00</div>
-      <div id="recStatus" style="color:var(--muted);font-size:14px;margin-bottom:24px;">Press Record to start</div>
-
-      <div style="display:flex;gap:12px;justify-content:center;margin-bottom:20px;">
-        <button id="recBtn" onclick="startRec()"
-          style="width:56px;height:56px;border-radius:50%;background:var(--accent2);border:none;cursor:pointer;font-size:22px;display:flex;align-items:center;justify-content:center;color:white;box-shadow:0 4px 20px rgba(255,106,158,.4);">
-          <i class="bi bi-mic-fill"></i>
-        </button>
-        <button id="stopBtn" onclick="stopRec()" disabled
-          style="width:56px;height:56px;border-radius:50%;background:var(--surface);border:2px solid var(--border);cursor:pointer;font-size:22px;display:flex;align-items:center;justify-content:center;color:var(--muted);">
-          <i class="bi bi-stop-fill"></i>
-        </button>
+    <div class="page-head">
+      <div class="page-head-top">
+        <div>
+          <div class="page-title">Record & <span>Analyze</span></div>
+          <div class="page-sub">Record your voice, then analyze the emotion</div>
+        </div>
+        <div id="statusPill" class="status-pill status-idle"><i class="bi bi-circle-fill" style="font-size:8px;"></i> Idle</div>
       </div>
-
-      <audio id="audioPlayback" controls style="width:100%;display:none;margin-bottom:16px;"></audio>
-
-      <button id="analyzeBtn" onclick="analyzeAudio()" disabled class="btn-primary-glow" style="width:100%;">
-        <i class="bi bi-cpu"></i> Analyze Emotion
-      </button>
     </div>
 
-    <!-- Result panel -->
-    <div class="glass-card" id="resultPanel" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;">
-      <div id="resultDefault" style="text-align:center;color:var(--muted);">
-        <i class="bi bi-soundwave" style="font-size:2.5rem;display:block;margin-bottom:12px;"></i>
-        <p style="font-size:14px;">Record audio and analyze<br>to see emotion results here</p>
+    <div class="grid-2">
+
+      <!-- Controls -->
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        <div class="g-card">
+          <div class="g-card-title"><i class="bi bi-mic-fill"></i> Recording Controls</div>
+
+          <!-- Waveform -->
+          <canvas id="waveCanvas" class="wave-canvas" style="margin-bottom:20px;"></canvas>
+
+          <!-- Timer -->
+          <div style="text-align:center;margin-bottom:24px;">
+            <div id="timer" style="font-family:'JetBrains Mono',monospace;font-size:3rem;font-weight:700;color:var(--text);letter-spacing:0.05em;">00:00</div>
+            <div id="statusText" style="font-size:13px;color:var(--text2);margin-top:6px;">Press Record to start</div>
+          </div>
+
+          <!-- Three action buttons -->
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:20px;">
+            <button id="btnRecord" onclick="startRec()" class="btn btn-cyan btn-lg" style="justify-content:center;flex-direction:column;gap:4px;padding:16px 8px;">
+              <i class="bi bi-mic-fill" style="font-size:22px;"></i>
+              <span style="font-size:12px;">Record</span>
+            </button>
+            <button id="btnStop" onclick="stopRec()" disabled class="btn btn-danger btn-lg" style="justify-content:center;flex-direction:column;gap:4px;padding:16px 8px;">
+              <i class="bi bi-stop-circle-fill" style="font-size:22px;"></i>
+              <span style="font-size:12px;">Stop</span>
+            </button>
+            <button id="btnAnalyze" onclick="analyzeAudio()" disabled class="btn btn-success btn-lg" style="justify-content:center;flex-direction:column;gap:4px;padding:16px 8px;">
+              <i class="bi bi-cpu-fill" style="font-size:22px;"></i>
+              <span style="font-size:12px;">Analyze</span>
+            </button>
+          </div>
+
+          <!-- Playback -->
+          <div id="playbackWrap" style="display:none;">
+            <div class="divider"></div>
+            <div class="g-card-title" style="margin-bottom:10px;"><i class="bi bi-play-circle"></i> Playback</div>
+            <audio id="audioPlayback" controls style="width:100%;border-radius:10px;"></audio>
+            <button onclick="resetRecording()" class="btn btn-ghost btn-sm" style="margin-top:10px;">
+              <i class="bi bi-arrow-counterclockwise"></i> Record Again
+            </button>
+          </div>
+        </div>
+
+        <!-- Tips -->
+        <div class="g-card">
+          <div class="g-card-title"><i class="bi bi-lightbulb-fill"></i> Tips for Better Results</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="display:flex;gap:10px;align-items:flex-start;">
+              <div style="width:28px;height:28px;border-radius:8px;background:rgba(0,212,255,0.12);display:flex;align-items:center;justify-content:center;color:var(--cyan);flex-shrink:0;font-size:13px;">1</div>
+              <div style="font-size:13px;color:var(--text2);padding-top:4px;">Speak clearly in a quiet environment</div>
+            </div>
+            <div style="display:flex;gap:10px;align-items:flex-start;">
+              <div style="width:28px;height:28px;border-radius:8px;background:rgba(0,212,255,0.12);display:flex;align-items:center;justify-content:center;color:var(--cyan);flex-shrink:0;font-size:13px;">2</div>
+              <div style="font-size:13px;color:var(--text2);padding-top:4px;">Record at least 2–3 seconds of speech</div>
+            </div>
+            <div style="display:flex;gap:10px;align-items:flex-start;">
+              <div style="width:28px;height:28px;border-radius:8px;background:rgba(0,212,255,0.12);display:flex;align-items:center;justify-content:center;color:var(--cyan);flex-shrink:0;font-size:13px;">3</div>
+              <div style="font-size:13px;color:var(--text2);padding-top:4px;">Express the emotion naturally while speaking</div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div id="resultContent" style="display:none;width:100%;text-align:center;">
-        <div id="resEmoji" style="font-size:3.5rem;margin-bottom:8px;"></div>
-        <div id="resEmotion" style="font-family:'Syne',sans-serif;font-size:2rem;font-weight:800;text-transform:capitalize;margin-bottom:4px;"></div>
-        <div id="resConfidence" style="font-size:14px;color:var(--muted);margin-bottom:20px;"></div>
-        <div id="resBars" style="width:100%;text-align:left;"></div>
+      <!-- Result panel -->
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        <div class="g-card" style="flex:1;">
+          <div class="g-card-title"><i class="bi bi-emoji-smile"></i> Analysis Result</div>
+          <div id="resultArea">
+            <div style="text-align:center;padding:48px 20px;color:var(--text2);">
+              <i class="bi bi-mic-mute" style="font-size:2.5rem;display:block;margin-bottom:12px;opacity:0.3;"></i>
+              <div style="font-weight:500;margin-bottom:4px;">No recording yet</div>
+              <div style="font-size:13px;">Record audio and click Analyze</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="g-card" id="probCard" style="display:none;">
+          <div class="g-card-title"><i class="bi bi-bar-chart-steps"></i> All Probabilities</div>
+          <div id="probBars"></div>
+        </div>
       </div>
+
     </div>
   </div>
 </div>
 {% endblock %}
 {% block extra_scripts %}
 <script>
-const COLORS = {angry:'#ff4d4d',calm:'#4dd9ff',disgust:'#a855f7',fear:'#f97316',happy:'#facc15',neutral:'#94a3b8',sad:'#60a5fa',surprise:'#34d399'};
-const EMOJI = {angry:'😠',calm:'😌',disgust:'🤢',fear:'😨',happy:'😄',neutral:'😐',sad:'😢',surprise:'😲'};
-
-let mediaRecorder, audioChunks = [], audioBlob;
+let mediaRecorder, audioBlob, audioCtx, analyser, animFrame;
 let timerInterval, seconds = 0;
-let audioCtx, analyser, animFrame;
 
-const vizCanvas = document.getElementById('waveViz');
-const vizCtx = vizCanvas.getContext('2d');
+const waveCanvas = document.getElementById('waveCanvas');
+const waveCtx = waveCanvas.getContext('2d');
 
 function drawWave() {
   if (!analyser) return;
   animFrame = requestAnimationFrame(drawWave);
   const buf = new Uint8Array(analyser.frequencyBinCount);
   analyser.getByteTimeDomainData(buf);
-  vizCtx.clearRect(0,0,vizCanvas.width,vizCanvas.height);
-  vizCtx.strokeStyle='#ff6a9e'; vizCtx.lineWidth=2;
-  vizCtx.beginPath();
-  const sw = vizCanvas.width/buf.length;
+  waveCtx.clearRect(0,0,waveCanvas.width,waveCanvas.height);
+  waveCtx.strokeStyle = '#f472b6'; waveCtx.lineWidth = 2;
+  waveCtx.beginPath();
+  const sw = waveCanvas.width / buf.length;
   buf.forEach((v,i) => {
-    const y = (v/128)*(vizCanvas.height/2);
-    i===0 ? vizCtx.moveTo(0,y) : vizCtx.lineTo(i*sw,y);
+    const y = (v/128)*(waveCanvas.height/2);
+    i===0 ? waveCtx.moveTo(0,y) : waveCtx.lineTo(i*sw,y);
   });
-  vizCtx.stroke();
+  waveCtx.stroke();
+}
+
+function setStatus(state) {
+  const pill = document.getElementById('statusPill');
+  const map = {
+    idle:      ['status-idle',      '<i class="bi bi-circle-fill" style="font-size:8px;"></i> Idle'],
+    recording: ['status-recording', '<span class="rec-dot"></span> Recording'],
+    stopped:   ['status-live',      '<i class="bi bi-check-circle-fill" style="font-size:10px;"></i> Ready to Analyze'],
+    analyzing: ['status-live',      '<i class="bi bi-hourglass-split" style="font-size:10px;"></i> Analyzing'],
+    done:      ['status-done',      '<i class="bi bi-check-circle-fill" style="font-size:10px;"></i> Done'],
+  };
+  pill.className = 'status-pill ' + map[state][0];
+  pill.innerHTML = map[state][1];
 }
 
 async function startRec() {
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     audioCtx = new AudioContext();
-    analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 512;
+    analyser = audioCtx.createAnalyser(); analyser.fftSize = 512;
     audioCtx.createMediaStreamSource(stream).connect(analyser);
     drawWave();
 
-    audioChunks = [];
+    const chunks = [];
     mediaRecorder = new MediaRecorder(stream);
-    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+    mediaRecorder.ondataavailable = e => chunks.push(e.data);
     mediaRecorder.onstop = () => {
-      audioBlob = new Blob(audioChunks, {type:'audio/webm'});
+      audioBlob = new Blob(chunks, { type: 'audio/webm' });
       const url = URL.createObjectURL(audioBlob);
-      const p = document.getElementById('audioPlayback');
-      p.src = url; p.style.display = 'block';
-      document.getElementById('analyzeBtn').disabled = false;
+      document.getElementById('audioPlayback').src = url;
+      document.getElementById('playbackWrap').style.display = 'block';
+      document.getElementById('btnAnalyze').disabled = false;
       cancelAnimationFrame(animFrame);
+      if (audioCtx) audioCtx.close();
+      waveCtx.clearRect(0,0,waveCanvas.width,waveCanvas.height);
     };
     mediaRecorder.start();
+
     seconds = 0;
     timerInterval = setInterval(() => {
       seconds++;
@@ -105,57 +167,80 @@ async function startRec() {
       const s = String(seconds%60).padStart(2,'0');
       document.getElementById('timer').textContent = `${m}:${s}`;
     }, 1000);
-    document.getElementById('recStatus').textContent = '🔴 Recording…';
-    document.getElementById('recBtn').disabled = true;
-    document.getElementById('stopBtn').disabled = false;
-  } catch(e) { alert('Microphone error: '+e.message); }
+
+    document.getElementById('btnRecord').disabled = true;
+    document.getElementById('btnStop').disabled = false;
+    document.getElementById('statusText').innerHTML = '<span class="rec-dot"></span> Recording…';
+    setStatus('recording');
+  } catch(e) { alert('Microphone error: ' + e.message); }
 }
 
 function stopRec() {
   if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
   clearInterval(timerInterval);
-  document.getElementById('recStatus').textContent = 'Recording saved — ready to analyze';
-  document.getElementById('recBtn').disabled = false;
-  document.getElementById('stopBtn').disabled = true;
-  if (audioCtx) audioCtx.close();
+  document.getElementById('btnRecord').disabled = false;
+  document.getElementById('btnStop').disabled = true;
+  document.getElementById('statusText').textContent = 'Saved — click Analyze';
+  setStatus('stopped');
 }
 
 async function analyzeAudio() {
   if (!audioBlob) return;
-  document.getElementById('analyzeBtn').disabled = true;
-  document.getElementById('analyzeBtn').innerHTML = '<i class="bi bi-hourglass-split"></i> Analyzing…';
+  document.getElementById('btnAnalyze').disabled = true;
+  document.getElementById('btnAnalyze').innerHTML = '<i class="bi bi-hourglass-split" style="font-size:22px;"></i><span style="font-size:12px;">Analyzing…</span>';
+  setStatus('analyzing');
+
   const fd = new FormData();
   fd.append('audio', audioBlob, 'recording.webm');
   fd.append('source', 'record');
   try {
-    const res = await fetch('/predict', {method:'POST', body:fd});
+    const res = await fetch('/predict', { method: 'POST', body: fd });
     const data = await res.json();
-    if (data.success) showResult(data);
-    else alert('Error: '+data.error);
-  } catch(e) { alert('Network error'); }
-  document.getElementById('analyzeBtn').disabled = false;
-  document.getElementById('analyzeBtn').innerHTML = '<i class="bi bi-cpu"></i> Analyze Emotion';
+    if (data.success) {
+      showResult(data);
+      setStatus('done');
+    } else { alert('Error: ' + data.error); setStatus('stopped'); }
+  } catch(e) { alert('Network error'); setStatus('stopped'); }
+
+  document.getElementById('btnAnalyze').disabled = false;
+  document.getElementById('btnAnalyze').innerHTML = '<i class="bi bi-cpu-fill" style="font-size:22px;"></i><span style="font-size:12px;">Analyze</span>';
 }
 
 function showResult(data) {
-  document.getElementById('resultDefault').style.display = 'none';
-  document.getElementById('resultContent').style.display = 'block';
-  const {emotion, confidence, all_probabilities} = data;
-  document.getElementById('resEmoji').textContent = EMOJI[emotion]||'🎤';
-  document.getElementById('resEmotion').textContent = emotion;
-  document.getElementById('resEmotion').style.color = COLORS[emotion]||'var(--text)';
-  document.getElementById('resConfidence').textContent = `Confidence: ${confidence.toFixed(1)}%`;
-  const bars = document.getElementById('resBars');
-  bars.innerHTML = '';
-  Object.entries(all_probabilities).sort((a,b)=>b[1]-a[1]).forEach(([e,p]) => {
-    bars.innerHTML += `<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
-      <div style="width:65px;font-size:11px;color:${COLORS[e]};font-weight:600;text-transform:capitalize;">${e}</div>
-      <div style="flex:1;height:5px;background:var(--border);border-radius:3px;">
-        <div style="width:${p}%;height:100%;background:${COLORS[e]};border-radius:3px;"></div>
-      </div>
-      <div style="width:38px;font-size:11px;color:var(--muted);text-align:right;">${p.toFixed(1)}%</div>
+  const { emotion, confidence, all_probabilities, recorded_at } = data;
+  const color = E_COLORS[emotion] || '#4f8bff';
+  document.getElementById('resultArea').innerHTML = `
+    <div class="result-big">
+      <span class="result-emoji">${E_EMOJI[emotion]||'🎤'}</span>
+      <div class="result-emotion" style="color:${color};">${emotion}</div>
+      <div class="result-conf">Confidence: <strong style="color:var(--text);font-family:'JetBrains Mono',monospace;">${confidence.toFixed(1)}%</strong></div>
+      <div class="result-time">Saved at ${recorded_at}</div>
     </div>`;
+
+  const probCard = document.getElementById('probCard');
+  const container = document.getElementById('probBars');
+  container.innerHTML = '';
+  Object.entries(all_probabilities).sort((a,b)=>b[1]-a[1]).forEach(([e,p]) => {
+    const c = E_COLORS[e] || '#4f8bff';
+    container.innerHTML += `
+      <div class="prob-row">
+        <div class="prob-label" style="color:${c};">${e}</div>
+        <div class="prob-bar-bg"><div class="prob-bar-fill" style="width:${p}%;background:${c};"></div></div>
+        <div class="prob-pct">${p.toFixed(1)}%</div>
+      </div>`;
   });
+  probCard.style.display = 'block';
+}
+
+function resetRecording() {
+  audioBlob = null;
+  document.getElementById('playbackWrap').style.display = 'none';
+  document.getElementById('btnAnalyze').disabled = true;
+  document.getElementById('timer').textContent = '00:00';
+  document.getElementById('statusText').textContent = 'Press Record to start';
+  document.getElementById('resultArea').innerHTML = `<div style="text-align:center;padding:48px 20px;color:var(--text2);"><i class="bi bi-mic-mute" style="font-size:2.5rem;display:block;margin-bottom:12px;opacity:0.3;"></i><div style="font-weight:500;margin-bottom:4px;">No recording yet</div><div style="font-size:13px;">Record audio and click Analyze</div></div>`;
+  document.getElementById('probCard').style.display = 'none';
+  setStatus('idle');
 }
 </script>
 {% endblock %}

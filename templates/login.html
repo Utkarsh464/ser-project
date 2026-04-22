@@ -1,29 +1,30 @@
 {% extends "base.html" %}
-{% block title %}Login — VoiceSense{% endblock %}
+{% block title %}Sign In — VoiceSense{% endblock %}
 {% block content %}
-<div class="auth-wrap">
-  <div class="auth-card">
-    <div style="text-align:center;margin-bottom:32px;">
-      <div style="display:inline-flex;align-items:center;gap:10px;margin-bottom:12px;">
-        <div style="width:12px;height:12px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent);"></div>
-        <span style="font-family:'Syne',sans-serif;font-weight:800;font-size:1.5rem;">VoiceSense</span>
-      </div>
-      <p style="color:var(--muted);font-size:14px;">Sign in to your emotion analysis workspace</p>
+<div class="auth-page">
+  <div class="auth-box">
+    <div class="auth-logo">
+      <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#4f8bff,#00d4ff);font-size:26px;margin-bottom:16px;box-shadow:0 8px 32px rgba(79,139,255,0.4);">🎤</div>
+      <div class="auth-title">Welcome back</div>
+      <div class="auth-sub">Sign in to your VoiceSense account</div>
     </div>
     <form method="POST">
-      <div style="margin-bottom:18px;">
-        <label class="form-label-dark">Username</label>
-        <input type="text" name="username" class="form-control-dark" placeholder="Enter username" required>
+      <div class="form-group">
+        <label class="form-label">Username</label>
+        <input type="text" name="username" class="form-input" placeholder="Enter your username" required autofocus>
       </div>
-      <div style="margin-bottom:24px;">
-        <label class="form-label-dark">Password</label>
-        <input type="password" name="password" class="form-control-dark" placeholder="Enter password" required>
+      <div class="form-group" style="margin-bottom:28px;">
+        <label class="form-label">Password</label>
+        <input type="password" name="password" class="form-input" placeholder="Enter your password" required>
       </div>
-      <button type="submit" class="btn-primary-glow" style="width:100%;">Sign In</button>
+      <button type="submit" class="btn btn-primary btn-lg" style="width:100%;justify-content:center;">
+        <i class="bi bi-box-arrow-in-right"></i> Sign In
+      </button>
     </form>
-    <p style="text-align:center;margin-top:20px;font-size:13px;color:var(--muted);">
-      No account? <a href="{{ url_for('register') }}" style="color:var(--accent);">Create one</a>
-    </p>
+    <div style="text-align:center;margin-top:24px;font-size:13px;color:var(--text2);">
+      Don't have an account?
+      <a href="{{ url_for('register') }}" style="color:var(--blue);font-weight:600;text-decoration:none;"> Create one →</a>
+    </div>
   </div>
 </div>
 {% endblock %}
